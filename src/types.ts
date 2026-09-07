@@ -30,7 +30,7 @@ export type Screen = "config" | "juego";
 export const DEFAULT_API: ApiSettings = {
   apiKey: "",
   baseUrl: "https://api.groq.com/openai/v1",
-  model: "llama-3.3-70b-versatile",
+  model: "openai/gpt-oss-20b",
 };
 
 export const DEFAULT_RPG: RpgConfig = {
@@ -40,3 +40,9 @@ export const DEFAULT_RPG: RpgConfig = {
   personajePrincipal: "",
   promptContinuo: "",
 };
+
+/** Deprecated Groq free-tier models shut down Aug 16 2026. */
+export const DEPRECATED_GROQ_MODELS = new Set([
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+]);

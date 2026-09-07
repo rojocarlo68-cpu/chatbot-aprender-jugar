@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import "./App.css";
-import { ApiError, chatCompletion } from "./api";
+import { ApiError, chatCompletion, testApiConnection } from "./api";
 import { buildRpgSystemPrompt } from "./prompts";
 import {
   clearChat,
@@ -42,6 +42,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [apiTestLoading, setApiTestLoading] = useState(false);
+  const [apiTestResult, setApiTestResult] = useState<string | null>(null);
   const [showPromptContinuo, setShowPromptContinuo] = useState(true);
   const [configHint, setConfigHint] = useState<string | null>(null);
 
@@ -168,6 +170,26 @@ export default function App() {
     setConfigHint(null);
   }
 
+
+  async function handleTestApi() {
+    setApiTestResult(null);
+    setApiTestLoading(true);
+    try {
+      const reply = await testApiConnection(api);
+      setApiTestResult("OK: " + (reply.trim() || "(respuesta vacía)"));
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.name + ": " + err.message
+            : String(err);
+      setApiTestResult("Error: " + msg);
+    } finally {
+      setApiTestLoading(false);
+    }
+  }
+
   function renderSettings() {
     return (
       <aside className="panel">
@@ -213,15 +235,42 @@ export default function App() {
             type="text"
             value={api.model}
             onChange={(e) => persistApi({ ...api, model: e.target.value })}
-            placeholder="llama-3.3-70b-versatile"
+            placeholder="openai/gpt-oss-20b"
           />
           <small style={{ color: "var(--text-muted)" }}>
-            Por defecto (Groq gratis):{" "}
-            <code>llama-3.3-70b-versatile</code>. Opcional: OpenRouter (
+            Por defecto (Groq gratis): <code>openai/gpt-oss-20b</code>.
+            Alternativas: <code>openai/gpt-oss-120b</code>,{" "}
+            <code>qwen/qwen3.6-27b</code>. Opcional: OpenRouter (
             <code>https://openrouter.ai/api/v1</code> + euryale/dolphin)
             requiere créditos.
           </small>
         </div>
+
+        <div className="panel-actions" style={{ marginBottom: "0.75rem" }}>
+          <button
+            type="button"
+            className="icon-btn"
+            disabled={apiTestLoading || !api.apiKey.trim()}
+            onClick={() => void handleTestApi()}
+          >
+            {apiTestLoading ? "Probando…" : "Probar API"}
+          </button>
+        </div>
+        {apiTestResult && (
+          <p
+            style={{
+              margin: "0 0 0.75rem",
+              fontSize: "0.8rem",
+              color: apiTestResult.startsWith("OK")
+                ? "var(--ok, #6ee7a8)"
+                : "var(--danger, #f87171)",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {apiTestResult}
+          </p>
+        )}
 
         <h3>Datos</h3>
         <div className="panel-actions">

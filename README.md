@@ -21,12 +21,15 @@ Jugar requiere Titulo, Historia y Personaje principal.
 
 ### Ajustes
 - API key, base URL, modelo
+- Boton "Probar API" (hello de 1 token)
 - Borrar chat / reset config
 
 **Proveedor por defecto: Groq (capa gratuita)**
 - Clave gratis en https://console.groq.com/keys
 - baseUrl: `https://api.groq.com/openai/v1`
-- model: `llama-3.3-70b-versatile`
+- model: `openai/gpt-oss-20b`
+- alternativas Groq: `openai/gpt-oss-120b`, `qwen/qwen3.6-27b`
+- Nota: `llama-3.3-70b-versatile` y `llama-3.1-8b-instant` se apagaron en capa gratuita (16 ago 2026)
 - La clave solo se guarda en localStorage de tu navegador
 
 **Alternativa opcional: OpenRouter** (requiere créditos)

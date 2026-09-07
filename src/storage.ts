@@ -1,14 +1,20 @@
 import type { ApiSettings, RpgConfig, Screen, UiMessage } from "./types";
-import { DEFAULT_API, DEFAULT_RPG } from "./types";
+import { DEFAULT_API, DEFAULT_RPG, DEPRECATED_GROQ_MODELS } from "./types";
 
 /** Bumped keys so old aprender/jugar dual-mode data is ignored. */
 const KEYS = {
-  /** v4: default provider switched from OpenRouter to Groq free tier. */
-  api: "caj_api_settings_v4",
+  /** v5: Groq free model openai/gpt-oss-20b (llama-3.3 shut down Aug 2026). */
+  api: "caj_api_settings_v5",
   rpg: "caj_rpg_config_v3",
   chat: "caj_chat_rpg_v3",
   screen: "caj_screen_v3",
 } as const;
+
+const LEGACY_API_KEYS = [
+  "caj_api_settings_v4",
+  "caj_api_settings_v3",
+  "caj_api_settings_v2",
+] as const;
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -29,8 +35,20 @@ function isOpenRouterDefault(settings: Partial<ApiSettings>): boolean {
   return base.includes("openrouter.ai") && !(settings.apiKey ?? "").trim();
 }
 
+function normalizeApiSettings(parsed: Partial<ApiSettings>): ApiSettings {
+  let model = (parsed.model || DEFAULT_API.model).trim();
+  if (DEPRECATED_GROQ_MODELS.has(model)) {
+    model = DEFAULT_API.model;
+  }
+  return {
+    apiKey: (parsed.apiKey ?? "").trim(),
+    baseUrl: (parsed.baseUrl || DEFAULT_API.baseUrl).trim() || DEFAULT_API.baseUrl,
+    model: model || DEFAULT_API.model,
+  };
+}
+
 function migrateFromLegacyApi(): ApiSettings | null {
-  for (const legacyKey of ["caj_api_settings_v3", "caj_api_settings_v2"]) {
+  for (const legacyKey of LEGACY_API_KEYS) {
     try {
       const legacy = localStorage.getItem(legacyKey);
       if (!legacy) continue;
@@ -39,13 +57,9 @@ function migrateFromLegacyApi(): ApiSettings | null {
       if (isOpenRouterDefault(parsed)) {
         return { ...DEFAULT_API };
       }
-      // User had a real key (or non-default base) → keep their settings.
+      // User had a real key (or non-default base) → keep their settings (migrate model).
       if ((parsed.apiKey ?? "").trim() || parsed.baseUrl || parsed.model) {
-        return {
-          apiKey: parsed.apiKey ?? "",
-          baseUrl: parsed.baseUrl || DEFAULT_API.baseUrl,
-          model: parsed.model || DEFAULT_API.model,
-        };
+        return normalizeApiSettings(parsed);
       }
     } catch {
       /* ignore */
@@ -72,18 +86,23 @@ export function loadApiSettings(): ApiSettings {
       writeJson(KEYS.api, next);
       return next;
     }
-    return {
-      apiKey: loaded.apiKey ?? "",
-      baseUrl: loaded.baseUrl || DEFAULT_API.baseUrl,
-      model: loaded.model || DEFAULT_API.model,
-    };
+    const next = normalizeApiSettings(loaded);
+    // Persist rewrite if deprecated model was replaced (preserve apiKey).
+    if ((loaded.model || "").trim() !== next.model) {
+      writeJson(KEYS.api, next);
+    }
+    return next;
   } catch {
     return { ...DEFAULT_API };
   }
 }
 
 export function saveApiSettings(settings: ApiSettings): void {
-  writeJson(KEYS.api, settings);
+  writeJson(KEYS.api, {
+    apiKey: settings.apiKey.trim(),
+    baseUrl: settings.baseUrl.trim(),
+    model: settings.model.trim(),
+  });
 }
 
 export function loadRpgConfig(): RpgConfig {
