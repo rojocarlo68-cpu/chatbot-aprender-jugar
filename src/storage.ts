@@ -14,7 +14,7 @@ import {
 } from "./types";
 
 const KEYS = {
-  api: "caj_api_settings",
+  api: "caj_api_settings_v2",
   rpg: "caj_rpg_config",
   rpgLiveContext: "caj_rpg_live_context",
   knowledge: "caj_knowledge",

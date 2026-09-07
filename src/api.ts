@@ -30,6 +30,8 @@ export async function chatCompletion(
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + settings.apiKey.trim(),
+        "HTTP-Referer": "https://rojocarlo68-cpu.github.io/chatbot-aprender-jugar/",
+        "X-Title": "Chatbot Aprender Jugar",
       },
       body: JSON.stringify({
         model: settings.model,

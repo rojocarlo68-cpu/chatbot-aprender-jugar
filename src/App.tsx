@@ -349,7 +349,7 @@ export default function App() {
           <aside className="panel">
             <h2>Configuración</h2>
 
-            <h3>API (compatible con OpenAI)</h3>
+            <h3>API (OpenRouter / compatible OpenAI)</h3>
             <div className="field">
               <label htmlFor="apiKey">Clave de API (solo en tu navegador)</label>
               <input
@@ -358,7 +358,7 @@ export default function App() {
                 autoComplete="off"
                 value={api.apiKey}
                 onChange={(e) => persistApi({ ...api, apiKey: e.target.value })}
-                placeholder="gsk_… o sk-…"
+                placeholder="sk-or-…"
               />
             </div>
             <div className="field">
@@ -368,7 +368,7 @@ export default function App() {
                 type="url"
                 value={api.baseUrl}
                 onChange={(e) => persistApi({ ...api, baseUrl: e.target.value })}
-                placeholder="https://api.groq.com/openai/v1"
+                placeholder="https://openrouter.ai/api/v1"
               />
             </div>
             <div className="field">
@@ -378,8 +378,20 @@ export default function App() {
                 type="text"
                 value={api.model}
                 onChange={(e) => persistApi({ ...api, model: e.target.value })}
-                placeholder="llama-3.3-70b-versatile"
+                placeholder="sao10k/l3.3-euryale-70b"
               />
+              <small style={{ color: "var(--text-muted)" }}>
+                Puedes cambiar el modelo en{" "}
+                <a
+                  href="https://openrouter.ai/models"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  openrouter.ai/models
+                </a>{" "}
+                (elige is_moderated false si quieres menos filtros). Alternativa:{" "}
+                <code>cognitivecomputations/dolphin-mistral-24b-venice-edition</code>
+              </small>
             </div>
 
             {mode === "jugar" && (

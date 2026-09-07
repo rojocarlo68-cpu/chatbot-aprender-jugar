@@ -34,8 +34,8 @@ export interface KnowledgeStore {
 
 export const DEFAULT_API: ApiSettings = {
   apiKey: "",
-  baseUrl: "https://api.groq.com/openai/v1",
-  model: "llama-3.3-70b-versatile",
+  baseUrl: "https://openrouter.ai/api/v1",
+  model: "sao10k/l3.3-euryale-70b",
 };
 
 export const DEFAULT_RPG: RpgConfig = {

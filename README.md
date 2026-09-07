@@ -24,24 +24,28 @@ https://rojocarlo68-cpu.github.io/chatbot-aprender-jugar/
 
 ## Cómo poner tu clave de API
 
+Por defecto la app usa **OpenRouter** (API compatible con OpenAI), con un modelo menos moderado pensado para RPG creativo.
+
 1. Abre la app (en Pages o en local).
 2. Pulsa **Ajustes**.
-3. Pega tu clave en **Clave de API** (Groq, OpenAI u otro proveedor compatible).
+3. Pega tu clave de OpenRouter en **Clave de API**.
 4. Opcional: cambia la **URL base** y el **modelo**.
 
 Valores por defecto:
-- URL base: `https://api.groq.com/openai/v1`
-- Modelo: `llama-3.3-70b-versatile`
+- URL base: `https://openrouter.ai/api/v1`
+- Modelo: `sao10k/l3.3-euryale-70b` (`is_moderated=false`, adecuado para creativo/RPG)
 
 La clave **solo** se guarda en el localStorage de tu navegador. Nunca se sube al repositorio.
 
-### Obtener una clave gratis (Groq)
+### Obtener una clave (OpenRouter)
 
-1. Crea una cuenta en https://console.groq.com/
-2. Genera una API key.
-3. Pégala en Ajustes de esta app.
+1. Crea una cuenta en https://openrouter.ai/
+2. Genera una API key en https://openrouter.ai/keys
+3. Pégala en Ajustes de esta app (empieza por `sk-or-…`).
 
-También puedes usar OpenAI (`https://api.openai.com/v1`) u otro endpoint compatible con Chat Completions.
+OpenRouter y el proveedor del modelo siguen teniendo términos de servicio; este modelo por defecto está menos moderado que opciones filtradas. Puedes elegir otros modelos en https://openrouter.ai/models (busca `is_moderated` false si quieres menos filtros). Alternativa sugerida: `cognitivecomputations/dolphin-mistral-24b-venice-edition`.
+
+También puedes usar Groq, OpenAI u otro endpoint compatible con Chat Completions cambiando la URL base y el modelo.
 
 ## Desarrollo local
 
