@@ -23,17 +23,23 @@ export async function chatCompletion(
   const base = settings.baseUrl.replace(/\/+$/, "");
   const url = base + "/chat/completions";
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: "Bearer " + settings.apiKey.trim(),
+  };
+
+  // OpenRouter recommends these; omit for other providers (e.g. Groq).
+  if (base.toLowerCase().includes("openrouter.ai")) {
+    headers["HTTP-Referer"] =
+      "https://rojocarlo68-cpu.github.io/chatbot-aprender-jugar/";
+    headers["X-Title"] = "RPG Chat — Aprender Jugar";
+  }
+
   let res: Response;
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + settings.apiKey.trim(),
-        "HTTP-Referer":
-          "https://rojocarlo68-cpu.github.io/chatbot-aprender-jugar/",
-        "X-Title": "RPG Chat — Aprender Jugar",
-      },
+      headers,
       body: JSON.stringify({
         model: settings.model,
         messages,

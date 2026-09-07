@@ -173,7 +173,7 @@ export default function App() {
       <aside className="panel">
         <h2>Ajustes</h2>
 
-        <h3>API (OpenRouter)</h3>
+        <h3>API (Groq por defecto)</h3>
         <div className="field">
           <label htmlFor="apiKey">Clave de API (solo en tu navegador)</label>
           <input
@@ -182,8 +182,19 @@ export default function App() {
             autoComplete="off"
             value={api.apiKey}
             onChange={(e) => persistApi({ ...api, apiKey: e.target.value })}
-            placeholder="sk-or-…"
+            placeholder="gsk_…"
           />
+          <small style={{ color: "var(--text-muted)" }}>
+            Clave gratis en{" "}
+            <a
+              href="https://console.groq.com/keys"
+              target="_blank"
+              rel="noreferrer"
+            >
+              console.groq.com/keys
+            </a>
+            .
+          </small>
         </div>
         <div className="field">
           <label htmlFor="baseUrl">URL base</label>
@@ -192,7 +203,7 @@ export default function App() {
             type="url"
             value={api.baseUrl}
             onChange={(e) => persistApi({ ...api, baseUrl: e.target.value })}
-            placeholder="https://openrouter.ai/api/v1"
+            placeholder="https://api.groq.com/openai/v1"
           />
         </div>
         <div className="field">
@@ -202,24 +213,13 @@ export default function App() {
             type="text"
             value={api.model}
             onChange={(e) => persistApi({ ...api, model: e.target.value })}
-            placeholder="sao10k/l3.3-euryale-70b"
+            placeholder="llama-3.3-70b-versatile"
           />
           <small style={{ color: "var(--text-muted)" }}>
-            Por defecto:{" "}
-            <code>sao10k/l3.3-euryale-70b</code>. Si hay límites de tasa o no
-            está disponible, prueba{" "}
-            <code>
-              cognitivecomputations/dolphin-mistral-24b-venice-edition
-            </code>
-            . Más modelos en{" "}
-            <a
-              href="https://openrouter.ai/models"
-              target="_blank"
-              rel="noreferrer"
-            >
-              openrouter.ai/models
-            </a>
-            .
+            Por defecto (Groq gratis):{" "}
+            <code>llama-3.3-70b-versatile</code>. Opcional: OpenRouter (
+            <code>https://openrouter.ai/api/v1</code> + euryale/dolphin)
+            requiere créditos.
           </small>
         </div>
 

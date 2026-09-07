@@ -3,7 +3,8 @@ import { DEFAULT_API, DEFAULT_RPG } from "./types";
 
 /** Bumped keys so old aprender/jugar dual-mode data is ignored. */
 const KEYS = {
-  api: "caj_api_settings_v3",
+  /** v4: default provider switched from OpenRouter to Groq free tier. */
+  api: "caj_api_settings_v4",
   rpg: "caj_rpg_config_v3",
   chat: "caj_chat_rpg_v3",
   screen: "caj_screen_v3",
@@ -23,14 +24,23 @@ function writeJson(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function loadApiSettings(): ApiSettings {
-  const loaded = readJson(KEYS.api, DEFAULT_API);
-  // Migrate from v2 key if present and v3 empty
-  if (!loaded.apiKey) {
+function isOpenRouterDefault(settings: Partial<ApiSettings>): boolean {
+  const base = (settings.baseUrl ?? "").toLowerCase();
+  return base.includes("openrouter.ai") && !(settings.apiKey ?? "").trim();
+}
+
+function migrateFromLegacyApi(): ApiSettings | null {
+  for (const legacyKey of ["caj_api_settings_v3", "caj_api_settings_v2"]) {
     try {
-      const legacy = localStorage.getItem("caj_api_settings_v2");
-      if (legacy) {
-        const parsed = JSON.parse(legacy) as Partial<ApiSettings>;
+      const legacy = localStorage.getItem(legacyKey);
+      if (!legacy) continue;
+      const parsed = JSON.parse(legacy) as Partial<ApiSettings>;
+      // Old OpenRouter defaults with no key → adopt Groq defaults.
+      if (isOpenRouterDefault(parsed)) {
+        return { ...DEFAULT_API };
+      }
+      // User had a real key (or non-default base) → keep their settings.
+      if ((parsed.apiKey ?? "").trim() || parsed.baseUrl || parsed.model) {
         return {
           apiKey: parsed.apiKey ?? "",
           baseUrl: parsed.baseUrl || DEFAULT_API.baseUrl,
@@ -41,11 +51,35 @@ export function loadApiSettings(): ApiSettings {
       /* ignore */
     }
   }
-  return {
-    apiKey: loaded.apiKey ?? "",
-    baseUrl: loaded.baseUrl || DEFAULT_API.baseUrl,
-    model: loaded.model || DEFAULT_API.model,
-  };
+  return null;
+}
+
+export function loadApiSettings(): ApiSettings {
+  try {
+    const raw = localStorage.getItem(KEYS.api);
+    if (!raw) {
+      const migrated = migrateFromLegacyApi();
+      if (migrated) {
+        writeJson(KEYS.api, migrated);
+        return migrated;
+      }
+      return { ...DEFAULT_API };
+    }
+    const loaded = JSON.parse(raw) as Partial<ApiSettings>;
+    // Safety: if somehow still on empty-key OpenRouter, force Groq defaults.
+    if (isOpenRouterDefault(loaded)) {
+      const next = { ...DEFAULT_API };
+      writeJson(KEYS.api, next);
+      return next;
+    }
+    return {
+      apiKey: loaded.apiKey ?? "",
+      baseUrl: loaded.baseUrl || DEFAULT_API.baseUrl,
+      model: loaded.model || DEFAULT_API.model,
+    };
+  } catch {
+    return { ...DEFAULT_API };
+  }
 }
 
 export function saveApiSettings(settings: ApiSettings): void {

@@ -29,8 +29,8 @@ export type Screen = "config" | "juego";
 
 export const DEFAULT_API: ApiSettings = {
   apiKey: "",
-  baseUrl: "https://openrouter.ai/api/v1",
-  model: "sao10k/l3.3-euryale-70b",
+  baseUrl: "https://api.groq.com/openai/v1",
+  model: "llama-3.3-70b-versatile",
 };
 
 export const DEFAULT_RPG: RpgConfig = {

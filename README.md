@@ -23,16 +23,21 @@ Jugar requiere Titulo, Historia y Personaje principal.
 - API key, base URL, modelo
 - Borrar chat / reset config
 
+**Proveedor por defecto: Groq (capa gratuita)**
+- Clave gratis en https://console.groq.com/keys
+- baseUrl: `https://api.groq.com/openai/v1`
+- model: `llama-3.3-70b-versatile`
+- La clave solo se guarda en localStorage de tu navegador
+
+**Alternativa opcional: OpenRouter** (requiere créditos)
+- baseUrl: `https://openrouter.ai/api/v1`
+- model: `sao10k/l3.3-euryale-70b`
+- alternativa: `cognitivecomputations/dolphin-mistral-24b-venice-edition`
+- Configúralo en Ajustes si prefieres esos modelos
+
 ## Demo
 
 https://rojocarlo68-cpu.github.io/chatbot-aprender-jugar/
-
-## API OpenRouter
-
-- baseUrl: https://openrouter.ai/api/v1
-- model: sao10k/l3.3-euryale-70b
-- alternativa: cognitivecomputations/dolphin-mistral-24b-venice-edition
-- clave solo en localStorage
 
 ## Desarrollo
 
