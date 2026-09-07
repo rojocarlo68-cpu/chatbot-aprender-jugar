@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import "./App.css";
 import { ApiError, chatCompletion } from "./api";
 import {
@@ -16,10 +17,12 @@ import {
   loadKnowledge,
   loadMode,
   loadRpgConfig,
+  loadRpgLiveContext,
   saveApiSettings,
   saveChat,
   saveMode,
   saveRpgConfig,
+  saveRpgLiveContext,
 } from "./storage";
 import type {
   ApiSettings,
@@ -27,6 +30,7 @@ import type {
   ChatMessage,
   KnowledgeStore,
   RpgConfig,
+  RpgLiveContext,
   UiMessage,
 } from "./types";
 
@@ -41,13 +45,16 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLiveContext, setShowLiveContext] = useState(true);
 
   const [api, setApi] = useState<ApiSettings>(() => loadApiSettings());
   const [rpg, setRpg] = useState<RpgConfig>(() => loadRpgConfig());
+  const [liveContext, setLiveContext] = useState<RpgLiveContext>(() =>
+    loadRpgLiveContext(),
+  );
   const [knowledge, setKnowledge] = useState<KnowledgeStore>(() => loadKnowledge());
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,6 +100,11 @@ export default function App() {
   function persistRpg(next: RpgConfig) {
     setRpg(next);
     saveRpgConfig(next);
+  }
+
+  function persistLiveContext(next: RpgLiveContext) {
+    setLiveContext(next);
+    saveRpgLiveContext(next);
   }
 
   async function extractAndStoreFacts(userText: string, assistantText: string) {
@@ -143,7 +155,7 @@ export default function App() {
     const systemPrompt =
       mode === "aprender"
         ? buildAprenderSystemPrompt(knowledge)
-        : buildJugarSystemPrompt(rpg);
+        : buildJugarSystemPrompt(rpg, liveContext);
 
     const history: ChatMessage[] = [
       { role: "system", content: systemPrompt },
@@ -250,7 +262,8 @@ export default function App() {
                 ) : (
                   <>
                     Modo juego de rol. Configura la historia, personajes y estilo
-                    en Ajustes, luego escribe tu primera acción.
+                    en Ajustes, luego escribe tu primera acción. Puedes editar el
+                    contexto vivo debajo mientras juegas.
                   </>
                 )}
               </div>
@@ -268,6 +281,41 @@ export default function App() {
           </div>
 
           {error && <div className="error-banner">{error}</div>}
+
+          {mode === "jugar" && !showSettings && (
+            <div className={"live-context" + (showLiveContext ? " open" : "")}>
+              <button
+                type="button"
+                className="live-context-toggle"
+                onClick={() => setShowLiveContext((v) => !v)}
+                aria-expanded={showLiveContext}
+              >
+                <span>Contexto del juego</span>
+                <span className="live-context-chevron" aria-hidden="true">
+                  {showLiveContext ? "▾" : "▸"}
+                </span>
+              </button>
+              {showLiveContext && (
+                <div className="live-context-body">
+                  <p className="live-context-hint">
+                    La IA consulta este texto en cada turno para seguir la historia.
+                  </p>
+                  <textarea
+                    id="liveContext"
+                    className="live-context-textarea"
+                    maxLength={200000}
+                    value={liveContext}
+                    onChange={(e) => persistLiveContext(e.target.value)}
+                    placeholder="Estado actual, ubicaciones, objetos, relaciones, hechos en curso…"
+                    rows={5}
+                  />
+                  <small className="live-context-count">
+                    {liveContext.length.toLocaleString("es")} caracteres
+                  </small>
+                </div>
+              )}
+            </div>
+          )}
 
           <form className="composer" onSubmit={handleSend}>
             <textarea
@@ -339,7 +387,7 @@ export default function App() {
                 <h3>Modo Jugar — RPG</h3>
                 <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>
                   Cada campo admite hasta más de 50.000 caracteres. Se guardan en
-                  localStorage.
+                  localStorage. El contexto vivo también se edita mientras chateas.
                 </p>
                 <div className="field">
                   <label htmlFor="historia">Historia / prompt del juego</label>
@@ -385,6 +433,21 @@ export default function App() {
                   />
                   <small style={{ color: "var(--text-muted)" }}>
                     {rpg.modoEscritura.length.toLocaleString("es")} caracteres
+                  </small>
+                </div>
+                <div className="field">
+                  <label htmlFor="liveContextSettings">Contexto del juego (vivo)</label>
+                  <textarea
+                    id="liveContextSettings"
+                    className="huge"
+                    maxLength={200000}
+                    value={liveContext}
+                    onChange={(e) => persistLiveContext(e.target.value)}
+                    placeholder="Estado actual que la IA consulta en cada turno…"
+                  />
+                  <small style={{ color: "var(--text-muted)" }}>
+                    {liveContext.length.toLocaleString("es")} caracteres · también
+                    editable desde el chat
                   </small>
                 </div>
               </>

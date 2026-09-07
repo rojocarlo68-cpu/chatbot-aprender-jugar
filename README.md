@@ -15,7 +15,8 @@ Chatbot de doble modo con interfaz en español y tema oscuro. Todo corre en el n
   - Historia / prompt del juego
   - Personajes
   - Modo de escritura (estilo)
-- La configuración se guarda en localStorage y forma el system prompt del modo juego.
+- Mientras chateas, el panel **Contexto del juego** (editable y persistente) se inyecta en cada turno del system prompt para anclar la narración al estado vivo de la historia.
+- La configuración y el contexto vivo se guardan en localStorage.
 
 ## Demo (GitHub Pages)
 
@@ -54,7 +55,7 @@ La base de Vite está configurada para GitHub Pages: `/chatbot-aprender-jugar/`.
 
 ## Despliegue
 
-Al hacer push a `main`, el workflow de GitHub Actions construye el proyecto y publica en GitHub Pages.
+El sitio estático se publica en la rama `gh-pages` (GitHub Pages). Tras cambios, construye con Vite y actualiza esa rama.
 
 ## Privacidad
 

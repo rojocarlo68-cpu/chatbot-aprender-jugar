@@ -1,4 +1,4 @@
-import type { KnowledgeStore, RpgConfig } from "./types";
+import type { KnowledgeStore, RpgConfig, RpgLiveContext } from "./types";
 
 export const BASELINE_CHILD_PERSONA = `Eres un niño o niña curioso/a de unos 10 años que habla siempre en español.
 Tu personalidad: amable, entusiasta, juguetón/a y con ganas de aprender. Hablas como un niño de escuela primaria: frases naturales, a veces con emoción, sin sonar como un adulto ni como un asistente profesional.
@@ -19,13 +19,26 @@ export function buildAprenderSystemPrompt(knowledge: KnowledgeStore): string {
   return prompt;
 }
 
-export function buildJugarSystemPrompt(config: RpgConfig): string {
+export function buildJugarSystemPrompt(
+  config: RpgConfig,
+  liveContext: RpgLiveContext = "",
+): string {
   const parts: string[] = [
     "Eres el narrador / motor de un juego de rol por chat. Responde siempre en español.",
     "Sigue la historia, los personajes y el modo de escritura indicados abajo.",
     "Mantén coherencia, no rompas el personaje ni salgas del mundo del juego salvo que el jugador lo pida.",
     "Si falta información en la configuración, improvisa de forma coherente con lo que sí hay.",
+    "En cada turno debes anclar la narración en: (1) el contexto vivo del juego si existe, (2) historia/personajes/modo de escritura, (3) las acciones y diálogos del jugador en el chat.",
   ];
+
+  const trimmedLive = liveContext.trim();
+  if (trimmedLive) {
+    parts.push(
+      "\n=== CONTEXTO VIVO DEL JUEGO ===\n" +
+        "Consulta SIEMPRE este texto al continuar la historia. Refleja su estado actual, ubicaciones, objetos, relaciones y hechos en curso. Si entra en conflicto con un detalle viejo del chat, prioriza este contexto vivo salvo que el jugador diga lo contrario.\n\n" +
+        trimmedLive,
+    );
+  }
 
   if (config.historia.trim()) {
     parts.push("\n=== HISTORIA / PROMPT DEL JUEGO ===\n" + config.historia.trim());

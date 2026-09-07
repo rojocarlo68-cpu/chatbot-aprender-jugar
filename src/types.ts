@@ -24,6 +24,9 @@ export interface RpgConfig {
   modoEscritura: string;
 }
 
+/** Live editable game context shown in play mode and injected each turn. */
+export type RpgLiveContext = string;
+
 export interface KnowledgeStore {
   facts: string[];
   updatedAt: number;
@@ -40,6 +43,8 @@ export const DEFAULT_RPG: RpgConfig = {
   personajes: "",
   modoEscritura: "",
 };
+
+export const DEFAULT_RPG_LIVE_CONTEXT: RpgLiveContext = "";
 
 export const DEFAULT_KNOWLEDGE: KnowledgeStore = {
   facts: [],

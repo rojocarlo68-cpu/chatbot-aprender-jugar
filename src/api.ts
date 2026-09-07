@@ -20,7 +20,7 @@ export async function chatCompletion(
     );
   }
 
-  const base = settings.baseUrl.replace(//+$/, "");
+  const base = settings.baseUrl.replace(/\/+$/, "");
   const url = base + "/chat/completions";
 
   let res: Response;

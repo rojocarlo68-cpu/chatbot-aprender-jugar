@@ -3,17 +3,20 @@ import type {
   AppMode,
   KnowledgeStore,
   RpgConfig,
+  RpgLiveContext,
   UiMessage,
 } from "./types";
 import {
   DEFAULT_API,
   DEFAULT_KNOWLEDGE,
   DEFAULT_RPG,
+  DEFAULT_RPG_LIVE_CONTEXT,
 } from "./types";
 
 const KEYS = {
   api: "caj_api_settings",
   rpg: "caj_rpg_config",
+  rpgLiveContext: "caj_rpg_live_context",
   knowledge: "caj_knowledge",
   mode: "caj_mode",
   chatAprender: "caj_chat_aprender",
@@ -48,6 +51,26 @@ export function loadRpgConfig(): RpgConfig {
 
 export function saveRpgConfig(config: RpgConfig): void {
   writeJson(KEYS.rpg, config);
+}
+
+export function loadRpgLiveContext(): RpgLiveContext {
+  try {
+    const raw = localStorage.getItem(KEYS.rpgLiveContext);
+    if (raw === null) return DEFAULT_RPG_LIVE_CONTEXT;
+    // Stored as plain string JSON (quoted) or legacy plain text
+    try {
+      const parsed = JSON.parse(raw);
+      return typeof parsed === "string" ? parsed : DEFAULT_RPG_LIVE_CONTEXT;
+    } catch {
+      return raw;
+    }
+  } catch {
+    return DEFAULT_RPG_LIVE_CONTEXT;
+  }
+}
+
+export function saveRpgLiveContext(context: RpgLiveContext): void {
+  localStorage.setItem(KEYS.rpgLiveContext, JSON.stringify(context));
 }
 
 export function loadKnowledge(): KnowledgeStore {
