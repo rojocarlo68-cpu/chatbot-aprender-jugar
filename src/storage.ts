@@ -1,26 +1,12 @@
-import type {
-  ApiSettings,
-  AppMode,
-  KnowledgeStore,
-  RpgConfig,
-  RpgLiveContext,
-  UiMessage,
-} from "./types";
-import {
-  DEFAULT_API,
-  DEFAULT_KNOWLEDGE,
-  DEFAULT_RPG,
-  DEFAULT_RPG_LIVE_CONTEXT,
-} from "./types";
+import type { ApiSettings, RpgConfig, Screen, UiMessage } from "./types";
+import { DEFAULT_API, DEFAULT_RPG } from "./types";
 
+/** Bumped keys so old aprender/jugar dual-mode data is ignored. */
 const KEYS = {
-  api: "caj_api_settings_v2",
-  rpg: "caj_rpg_config",
-  rpgLiveContext: "caj_rpg_live_context",
-  knowledge: "caj_knowledge",
-  mode: "caj_mode",
-  chatAprender: "caj_chat_aprender",
-  chatJugar: "caj_chat_jugar",
+  api: "caj_api_settings_v3",
+  rpg: "caj_rpg_config_v3",
+  chat: "caj_chat_rpg_v3",
+  screen: "caj_screen_v3",
 } as const;
 
 function readJson<T>(key: string, fallback: T): T {
@@ -38,7 +24,28 @@ function writeJson(key: string, value: unknown): void {
 }
 
 export function loadApiSettings(): ApiSettings {
-  return readJson(KEYS.api, DEFAULT_API);
+  const loaded = readJson(KEYS.api, DEFAULT_API);
+  // Migrate from v2 key if present and v3 empty
+  if (!loaded.apiKey) {
+    try {
+      const legacy = localStorage.getItem("caj_api_settings_v2");
+      if (legacy) {
+        const parsed = JSON.parse(legacy) as Partial<ApiSettings>;
+        return {
+          apiKey: parsed.apiKey ?? "",
+          baseUrl: parsed.baseUrl || DEFAULT_API.baseUrl,
+          model: parsed.model || DEFAULT_API.model,
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return {
+    apiKey: loaded.apiKey ?? "",
+    baseUrl: loaded.baseUrl || DEFAULT_API.baseUrl,
+    model: loaded.model || DEFAULT_API.model,
+  };
 }
 
 export function saveApiSettings(settings: ApiSettings): void {
@@ -46,78 +53,32 @@ export function saveApiSettings(settings: ApiSettings): void {
 }
 
 export function loadRpgConfig(): RpgConfig {
-  return readJson(KEYS.rpg, DEFAULT_RPG);
+  const loaded = readJson(KEYS.rpg, DEFAULT_RPG);
+  return {
+    titulo: loaded.titulo ?? "",
+    personajes: loaded.personajes ?? "",
+    historia: loaded.historia ?? "",
+    personajePrincipal: loaded.personajePrincipal ?? "",
+    promptContinuo: loaded.promptContinuo ?? "",
+  };
 }
 
 export function saveRpgConfig(config: RpgConfig): void {
   writeJson(KEYS.rpg, config);
 }
 
-export function loadRpgLiveContext(): RpgLiveContext {
+export function loadScreen(): Screen {
+  const s = localStorage.getItem(KEYS.screen);
+  return s === "juego" ? "juego" : "config";
+}
+
+export function saveScreen(screen: Screen): void {
+  localStorage.setItem(KEYS.screen, screen);
+}
+
+export function loadChat(): UiMessage[] {
   try {
-    const raw = localStorage.getItem(KEYS.rpgLiveContext);
-    if (raw === null) return DEFAULT_RPG_LIVE_CONTEXT;
-    // Stored as plain string JSON (quoted) or legacy plain text
-    try {
-      const parsed = JSON.parse(raw);
-      return typeof parsed === "string" ? parsed : DEFAULT_RPG_LIVE_CONTEXT;
-    } catch {
-      return raw;
-    }
-  } catch {
-    return DEFAULT_RPG_LIVE_CONTEXT;
-  }
-}
-
-export function saveRpgLiveContext(context: RpgLiveContext): void {
-  localStorage.setItem(KEYS.rpgLiveContext, JSON.stringify(context));
-}
-
-export function loadKnowledge(): KnowledgeStore {
-  const data = readJson(KEYS.knowledge, DEFAULT_KNOWLEDGE);
-  if (!Array.isArray(data.facts)) data.facts = [];
-  return data;
-}
-
-export function saveKnowledge(store: KnowledgeStore): void {
-  writeJson(KEYS.knowledge, store);
-}
-
-export function addFacts(newFacts: string[]): KnowledgeStore {
-  const store = loadKnowledge();
-  const existing = new Set(store.facts.map((f) => f.trim().toLowerCase()));
-  for (const fact of newFacts) {
-    const trimmed = fact.trim();
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
-    if (existing.has(key)) continue;
-    existing.add(key);
-    store.facts.push(trimmed);
-  }
-  store.updatedAt = Date.now();
-  saveKnowledge(store);
-  return store;
-}
-
-export function clearKnowledge(): KnowledgeStore {
-  const empty = { ...DEFAULT_KNOWLEDGE, updatedAt: Date.now() };
-  saveKnowledge(empty);
-  return empty;
-}
-
-export function loadMode(): AppMode {
-  const m = localStorage.getItem(KEYS.mode);
-  return m === "jugar" ? "jugar" : "aprender";
-}
-
-export function saveMode(mode: AppMode): void {
-  localStorage.setItem(KEYS.mode, mode);
-}
-
-export function loadChat(mode: AppMode): UiMessage[] {
-  const key = mode === "aprender" ? KEYS.chatAprender : KEYS.chatJugar;
-  try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(KEYS.chat);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -126,11 +87,15 @@ export function loadChat(mode: AppMode): UiMessage[] {
   }
 }
 
-export function saveChat(mode: AppMode, messages: UiMessage[]): void {
-  const key = mode === "aprender" ? KEYS.chatAprender : KEYS.chatJugar;
-  writeJson(key, messages);
+export function saveChat(messages: UiMessage[]): void {
+  writeJson(KEYS.chat, messages);
 }
 
-export function clearChat(mode: AppMode): void {
-  saveChat(mode, []);
+export function clearChat(): void {
+  saveChat([]);
+}
+
+export function resetRpgConfig(): RpgConfig {
+  saveRpgConfig({ ...DEFAULT_RPG });
+  return { ...DEFAULT_RPG };
 }

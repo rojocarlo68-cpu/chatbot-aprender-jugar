@@ -1,5 +1,3 @@
-export type AppMode = "aprender" | "jugar";
-
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -19,18 +17,15 @@ export interface ApiSettings {
 }
 
 export interface RpgConfig {
-  historia: string;
+  titulo: string;
   personajes: string;
-  modoEscritura: string;
+  historia: string;
+  personajePrincipal: string;
+  /** Prompt continuo: la IA lo consulta en cada turno; editable durante el juego. */
+  promptContinuo: string;
 }
 
-/** Live editable game context shown in play mode and injected each turn. */
-export type RpgLiveContext = string;
-
-export interface KnowledgeStore {
-  facts: string[];
-  updatedAt: number;
-}
+export type Screen = "config" | "juego";
 
 export const DEFAULT_API: ApiSettings = {
   apiKey: "",
@@ -39,14 +34,9 @@ export const DEFAULT_API: ApiSettings = {
 };
 
 export const DEFAULT_RPG: RpgConfig = {
-  historia: "",
+  titulo: "",
   personajes: "",
-  modoEscritura: "",
-};
-
-export const DEFAULT_RPG_LIVE_CONTEXT: RpgLiveContext = "";
-
-export const DEFAULT_KNOWLEDGE: KnowledgeStore = {
-  facts: [],
-  updatedAt: 0,
+  historia: "",
+  personajePrincipal: "",
+  promptContinuo: "",
 };

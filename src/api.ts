@@ -16,7 +16,7 @@ export async function chatCompletion(
 ): Promise<string> {
   if (!settings.apiKey.trim()) {
     throw new ApiError(
-      "Falta la clave de API. Ábrela en Configuración y pégala ahí (solo se guarda en tu navegador).",
+      "Falta la clave de API. Ábrela en Ajustes y pégala ahí (solo se guarda en tu navegador).",
     );
   }
 
@@ -30,13 +30,14 @@ export async function chatCompletion(
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + settings.apiKey.trim(),
-        "HTTP-Referer": "https://rojocarlo68-cpu.github.io/chatbot-aprender-jugar/",
-        "X-Title": "Chatbot Aprender Jugar",
+        "HTTP-Referer":
+          "https://rojocarlo68-cpu.github.io/chatbot-aprender-jugar/",
+        "X-Title": "RPG Chat — Aprender Jugar",
       },
       body: JSON.stringify({
         model: settings.model,
         messages,
-        temperature: options?.temperature ?? 0.7,
+        temperature: options?.temperature ?? 0.85,
         max_tokens: options?.maxTokens ?? 2048,
       }),
     });
@@ -51,7 +52,10 @@ export async function chatCompletion(
     data = JSON.parse(text);
   } catch {
     throw new ApiError(
-      "Respuesta inválida de la API (HTTP " + res.status + "): " + text.slice(0, 200),
+      "Respuesta inválida de la API (HTTP " +
+        res.status +
+        "): " +
+        text.slice(0, 200),
       res.status,
     );
   }
@@ -63,7 +67,10 @@ export async function chatCompletion(
 
   if (!res.ok) {
     const errMsg = obj.error?.message || text.slice(0, 300);
-    throw new ApiError("Error de API (HTTP " + res.status + "): " + errMsg, res.status);
+    throw new ApiError(
+      "Error de API (HTTP " + res.status + "): " + errMsg,
+      res.status,
+    );
   }
 
   const content = obj.choices?.[0]?.message?.content;
