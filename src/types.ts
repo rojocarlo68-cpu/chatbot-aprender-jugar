@@ -1,6 +1,10 @@
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ContentPart[];
 }
 
 export interface UiMessage {
@@ -8,12 +12,18 @@ export interface UiMessage {
   role: "user" | "assistant";
   content: string;
   ts: number;
+  /** Default text; image bubbles from Generar imagen. */
+  kind?: "text" | "image";
+  /** In-memory display URL (data URL). Persisted in IndexedDB, not localStorage. */
+  imageUrl?: string;
 }
 
 export interface ApiSettings {
   apiKey: string;
   baseUrl: string;
   model: string;
+  /** Vision-capable model used when a reference image is set. */
+  visionModel: string;
 }
 
 export interface RpgConfig {
@@ -27,10 +37,13 @@ export interface RpgConfig {
 
 export type Screen = "config" | "juego";
 
+export const DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b";
+
 export const DEFAULT_API: ApiSettings = {
   apiKey: "",
   baseUrl: "https://api.groq.com/openai/v1",
   model: "openai/gpt-oss-20b",
+  visionModel: DEFAULT_VISION_MODEL,
 };
 
 export const DEFAULT_RPG: RpgConfig = {

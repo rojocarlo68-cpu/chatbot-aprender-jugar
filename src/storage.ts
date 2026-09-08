@@ -1,16 +1,23 @@
 import type { ApiSettings, RpgConfig, Screen, UiMessage } from "./types";
-import { DEFAULT_API, DEFAULT_RPG, DEPRECATED_GROQ_MODELS } from "./types";
+import {
+  DEFAULT_API,
+  DEFAULT_RPG,
+  DEFAULT_VISION_MODEL,
+  DEPRECATED_GROQ_MODELS,
+} from "./types";
+import { clearAllMessageImages } from "./idb";
 
 /** Bumped keys so old aprender/jugar dual-mode data is ignored. */
 const KEYS = {
-  /** v5: Groq free model openai/gpt-oss-20b (llama-3.3 shut down Aug 2026). */
-  api: "caj_api_settings_v5",
+  /** v6: adds visionModel for reference-image chat. */
+  api: "caj_api_settings_v6",
   rpg: "caj_rpg_config_v3",
   chat: "caj_chat_rpg_v3",
   screen: "caj_screen_v3",
 } as const;
 
 const LEGACY_API_KEYS = [
+  "caj_api_settings_v5",
   "caj_api_settings_v4",
   "caj_api_settings_v3",
   "caj_api_settings_v2",
@@ -40,10 +47,13 @@ function normalizeApiSettings(parsed: Partial<ApiSettings>): ApiSettings {
   if (DEPRECATED_GROQ_MODELS.has(model)) {
     model = DEFAULT_API.model;
   }
+  const visionModel =
+    (parsed.visionModel || DEFAULT_VISION_MODEL).trim() || DEFAULT_VISION_MODEL;
   return {
     apiKey: (parsed.apiKey ?? "").trim(),
     baseUrl: (parsed.baseUrl || DEFAULT_API.baseUrl).trim() || DEFAULT_API.baseUrl,
     model: model || DEFAULT_API.model,
+    visionModel,
   };
 }
 
@@ -87,8 +97,11 @@ export function loadApiSettings(): ApiSettings {
       return next;
     }
     const next = normalizeApiSettings(loaded);
-    // Persist rewrite if deprecated model was replaced (preserve apiKey).
-    if ((loaded.model || "").trim() !== next.model) {
+    // Persist rewrite if deprecated model was replaced or visionModel added.
+    if (
+      (loaded.model || "").trim() !== next.model ||
+      !(loaded.visionModel || "").trim()
+    ) {
       writeJson(KEYS.api, next);
     }
     return next;
@@ -102,6 +115,7 @@ export function saveApiSettings(settings: ApiSettings): void {
     apiKey: settings.apiKey.trim(),
     baseUrl: settings.baseUrl.trim(),
     model: settings.model.trim(),
+    visionModel: (settings.visionModel || DEFAULT_VISION_MODEL).trim(),
   });
 }
 
@@ -129,23 +143,40 @@ export function saveScreen(screen: Screen): void {
   localStorage.setItem(KEYS.screen, screen);
 }
 
+/** Persist chat metadata only (no image data URLs — those live in IndexedDB). */
 export function loadChat(): UiMessage[] {
   try {
     const raw = localStorage.getItem(KEYS.chat);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((m: UiMessage) => ({
+      id: m.id,
+      role: m.role,
+      content: typeof m.content === "string" ? m.content : "",
+      ts: typeof m.ts === "number" ? m.ts : Date.now(),
+      kind: m.kind === "image" ? "image" : "text",
+      // imageUrl hydrated async from IndexedDB
+    }));
   } catch {
     return [];
   }
 }
 
 export function saveChat(messages: UiMessage[]): void {
-  writeJson(KEYS.chat, messages);
+  const slim = messages.map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    ts: m.ts,
+    kind: m.kind === "image" ? "image" : "text",
+  }));
+  writeJson(KEYS.chat, slim);
 }
 
-export function clearChat(): void {
+export async function clearChat(): Promise<void> {
   saveChat([]);
+  await clearAllMessageImages();
 }
 
 export function resetRpgConfig(): RpgConfig {

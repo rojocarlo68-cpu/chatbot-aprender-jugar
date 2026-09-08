@@ -494,3 +494,114 @@ code {
     font-size: 0.95rem;
   }
 }
+
+/* --- Imagen de referencia (Config) --- */
+.ref-dropzone {
+  border: 1px dashed #444;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  background: #000;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.ref-dropzone.drag-over {
+  border-color: var(--accent);
+  background: #12081f;
+}
+
+.ref-dropzone input[type="file"] {
+  width: 100%;
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+
+.ref-drop-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ref-preview {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.ref-preview img {
+  max-width: min(100%, 320px);
+  max-height: 240px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  object-fit: contain;
+  background: #000;
+}
+
+/* --- Chat image bubbles --- */
+.bubble.bubble-image {
+  max-width: min(92%, 420px);
+  padding: 0.65rem;
+}
+
+.chat-image {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #000;
+}
+
+.image-missing {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* --- Composer: Generar imagen --- */
+.composer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-self: stretch;
+}
+
+.btn-gen-image {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-gen-image:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-gen-image:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.composer button.send {
+  align-self: stretch;
+  flex: 1;
+}
+
+@media (max-width: 520px) {
+  .composer {
+    flex-wrap: wrap;
+  }
+  .composer-actions {
+    flex-direction: row;
+    width: 100%;
+  }
+  .composer-actions .send,
+  .composer-actions .btn-gen-image {
+    flex: 1;
+  }
+}

@@ -59,7 +59,12 @@ function assertAbsoluteHttpsUrl(baseUrl: string): string {
 export async function chatCompletion(
   settings: ApiSettings,
   messages: ChatMessage[],
-  options?: { temperature?: number; maxTokens?: number },
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+    /** Override model for this request (e.g. vision model when reference image is set). */
+    model?: string;
+  },
 ): Promise<string> {
   const apiKey = settings.apiKey.trim();
   if (!apiKey) {
@@ -70,7 +75,7 @@ export async function chatCompletion(
 
   const base = assertAbsoluteHttpsUrl(settings.baseUrl);
   const url = base + "/chat/completions";
-  const model = settings.model.trim();
+  const model = (options?.model ?? settings.model).trim();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { DragEvent, FormEvent } from "react";
 import "./App.css";
 import { ApiError, chatCompletion, testApiConnection } from "./api";
-import { buildRpgSystemPrompt } from "./prompts";
+import {
+  clearReferenceImage,
+  loadMessageImage,
+  loadReferenceImage,
+  saveMessageImage,
+  saveReferenceImage,
+} from "./idb";
+import {
+  compressBlobToDataUrl,
+  compressImageFile,
+  generatePollinationsImage,
+} from "./images";
+import { buildImagePromptSystem, buildRpgSystemPrompt } from "./prompts";
 import {
   clearChat,
   loadApiSettings,
@@ -22,6 +34,7 @@ import type {
   Screen,
   UiMessage,
 } from "./types";
+import { DEFAULT_VISION_MODEL } from "./types";
 
 function uid(): string {
   return crypto.randomUUID();
@@ -35,26 +48,101 @@ function canStartGame(rpg: RpgConfig): boolean {
   );
 }
 
+/** Build API history from UI messages; image bubbles become short placeholders. */
+function uiToChatHistory(messages: UiMessage[]): ChatMessage[] {
+  return messages.map((m) => {
+    if (m.kind === "image") {
+      return {
+        role: m.role,
+        content:
+          m.content.trim() ||
+          "[Se generó una imagen de la escena actual del juego.]",
+      };
+    }
+    return { role: m.role, content: m.content };
+  });
+}
+
+function withReferenceImage(
+  systemPrompt: string,
+  history: ChatMessage[],
+  referenceImage: string | null,
+): ChatMessage[] {
+  if (!referenceImage) {
+    return [{ role: "system", content: systemPrompt }, ...history];
+  }
+  return [
+    { role: "system", content: systemPrompt },
+    {
+      role: "user",
+      content: [
+        {
+          type: "image_url",
+          image_url: { url: referenceImage },
+        },
+        {
+          type: "text",
+          text:
+            "Imagen de referencia visual del RPG (look, estilo, personajes). Úsala en toda la partida.",
+        },
+      ],
+    },
+    {
+      role: "assistant",
+      content:
+        "Entendido. Usaré esa imagen como referencia visual de estilo y personajes.",
+    },
+    ...history,
+  ];
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>(() => loadScreen());
   const [messages, setMessages] = useState<UiMessage[]>(() => loadChat());
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [apiTestLoading, setApiTestLoading] = useState(false);
   const [apiTestResult, setApiTestResult] = useState<string | null>(null);
   const [showPromptContinuo, setShowPromptContinuo] = useState(true);
   const [configHint, setConfigHint] = useState<string | null>(null);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [refDragOver, setRefDragOver] = useState(false);
+  const [refBusy, setRefBusy] = useState(false);
 
   const [api, setApi] = useState<ApiSettings>(() => loadApiSettings());
   const [rpg, setRpg] = useState<RpgConfig>(() => loadRpgConfig());
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load reference image + hydrate chat image bubbles from IndexedDB
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ref = await loadReferenceImage();
+      if (!cancelled) setReferenceImage(ref);
+
+      const stored = loadChat();
+      const hydrated = await Promise.all(
+        stored.map(async (m) => {
+          if (m.kind !== "image") return m;
+          const url = await loadMessageImage(m.id);
+          return url ? { ...m, imageUrl: url } : m;
+        }),
+      );
+      if (!cancelled) setMessages(hydrated);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, imageLoading]);
 
   useEffect(() => {
     saveScreen(screen);
@@ -66,6 +154,7 @@ export default function App() {
 
   const hasKey = Boolean(api.apiKey.trim());
   const titleDisplay = rpg.titulo.trim() || "Juego de rol";
+  const busy = loading || imageLoading;
 
   function persistApi(next: ApiSettings) {
     setApi(next);
@@ -96,10 +185,40 @@ export default function App() {
     setShowSettings(false);
   }
 
+  async function handleReferenceFile(file: File | null | undefined) {
+    if (!file) return;
+    setRefBusy(true);
+    setError(null);
+    try {
+      const dataUrl = await compressImageFile(file);
+      await saveReferenceImage(dataUrl);
+      setReferenceImage(dataUrl);
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo procesar la imagen.";
+      setError(msg);
+    } finally {
+      setRefBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleClearReference() {
+    await clearReferenceImage();
+    setReferenceImage(null);
+  }
+
+  function onRefDrop(e: DragEvent) {
+    e.preventDefault();
+    setRefDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    void handleReferenceFile(file);
+  }
+
   async function handleSend(e?: FormEvent) {
     e?.preventDefault();
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || busy) return;
 
     setError(null);
     setInput("");
@@ -109,25 +228,25 @@ export default function App() {
       role: "user",
       content: text,
       ts: Date.now(),
+      kind: "text",
     };
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
     setLoading(true);
 
-    // Re-read latest rpg from state (includes promptContinuo edited mid-play)
-    const systemPrompt = buildRpgSystemPrompt(rpg);
-    const history: ChatMessage[] = [
-      { role: "system", content: systemPrompt },
-      ...nextMessages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-    ];
+    const hasRef = Boolean(referenceImage);
+    const systemPrompt = buildRpgSystemPrompt(rpg, hasRef);
+    const history = withReferenceImage(
+      systemPrompt,
+      uiToChatHistory(nextMessages),
+      referenceImage,
+    );
 
     try {
       const reply = await chatCompletion(api, history, {
         temperature: 0.85,
         maxTokens: 2048,
+        model: hasRef ? api.visionModel || DEFAULT_VISION_MODEL : undefined,
       });
 
       const assistantMsg: UiMessage = {
@@ -135,6 +254,7 @@ export default function App() {
         role: "assistant",
         content: reply,
         ts: Date.now(),
+        kind: "text",
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
@@ -150,15 +270,85 @@ export default function App() {
     }
   }
 
-  function handleClearChat() {
+  async function handleGenerateImage() {
+    if (busy) return;
+    setError(null);
+    setImageLoading(true);
+
+    try {
+      const recent = messages
+        .filter((m) => m.kind !== "image")
+        .slice(-12)
+        .map(
+          (m) =>
+            (m.role === "user" ? "Jugador: " : "Narrador: ") +
+            m.content.slice(0, 600),
+        )
+        .join("\n");
+
+      const promptMsgs: ChatMessage[] = [
+        { role: "system", content: buildImagePromptSystem(rpg) },
+        {
+          role: "user",
+          content:
+            (recent
+              ? "Recent chat:\n" + recent + "\n\n"
+              : "No chat yet — invent a fitting opening scene.\n\n") +
+            "Write the single English image prompt now.",
+        },
+      ];
+
+      let imagePrompt = await chatCompletion(api, promptMsgs, {
+        temperature: 0.7,
+        maxTokens: 220,
+      });
+      imagePrompt = imagePrompt
+        .trim()
+        .replace(/^["'`]+|["'`]+$/g, "")
+        .replace(/^prompt:\s*/i, "")
+        .slice(0, 1200);
+
+      if (!imagePrompt) {
+        throw new Error("El modelo no devolvió un prompt de imagen.");
+      }
+
+      const blob = await generatePollinationsImage(imagePrompt);
+      const dataUrl = await compressBlobToDataUrl(blob);
+
+      const id = uid();
+      await saveMessageImage(id, dataUrl);
+
+      const imageMsg: UiMessage = {
+        id,
+        role: "assistant",
+        content: imagePrompt,
+        ts: Date.now(),
+        kind: "image",
+        imageUrl: dataUrl,
+      };
+      setMessages((prev) => [...prev, imageMsg]);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Error al generar la imagen";
+      setError(msg);
+    } finally {
+      setImageLoading(false);
+    }
+  }
+
+  async function handleClearChat() {
     if (!confirm("¿Borrar el chat del juego? La configuración se mantiene."))
       return;
-    clearChat();
+    await clearChat();
     setMessages([]);
     setError(null);
   }
 
-  function handleResetConfig() {
+  async function handleResetConfig() {
     if (
       !confirm(
         "¿Restablecer toda la configuración del juego? El chat no se borra.",
@@ -167,9 +357,10 @@ export default function App() {
       return;
     const empty = resetRpgConfig();
     setRpg(empty);
+    await clearReferenceImage();
+    setReferenceImage(null);
     setConfigHint(null);
   }
-
 
   async function handleTestApi() {
     setApiTestResult(null);
@@ -229,7 +420,7 @@ export default function App() {
           />
         </div>
         <div className="field">
-          <label htmlFor="model">Modelo</label>
+          <label htmlFor="model">Modelo (texto)</label>
           <input
             id="model"
             type="text"
@@ -243,6 +434,22 @@ export default function App() {
             <code>qwen/qwen3.6-27b</code>. Opcional: OpenRouter (
             <code>https://openrouter.ai/api/v1</code> + euryale/dolphin)
             requiere créditos.
+          </small>
+        </div>
+        <div className="field">
+          <label htmlFor="visionModel">Modelo con visión</label>
+          <input
+            id="visionModel"
+            type="text"
+            value={api.visionModel}
+            onChange={(e) =>
+              persistApi({ ...api, visionModel: e.target.value })
+            }
+            placeholder={DEFAULT_VISION_MODEL}
+          />
+          <small style={{ color: "var(--text-muted)" }}>
+            Se usa solo cuando hay imagen de referencia. Por defecto:{" "}
+            <code>{DEFAULT_VISION_MODEL}</code> (Groq).
           </small>
         </div>
 
@@ -277,14 +484,14 @@ export default function App() {
           <button
             type="button"
             className="icon-btn danger"
-            onClick={handleClearChat}
+            onClick={() => void handleClearChat()}
           >
             Borrar chat
           </button>
           <button
             type="button"
             className="icon-btn danger"
-            onClick={handleResetConfig}
+            onClick={() => void handleResetConfig()}
           >
             Restablecer configuración
           </button>
@@ -297,10 +504,59 @@ export default function App() {
             color: "var(--text-muted)",
           }}
         >
-          Todo se guarda solo en tu navegador (localStorage). No hay servidor
-          propio ni secretos en el código.
+          Texto en localStorage; imágenes (referencia y generadas) en IndexedDB.
+          No hay servidor propio ni secretos en el código.
         </p>
       </aside>
+    );
+  }
+
+  function renderReferenceUpload() {
+    return (
+      <div className="field">
+        <label htmlFor="refImage">Imagen de referencia</label>
+        <p className="field-hint">
+          Opcional. La IA la usará como guía visual (look, estilo, personajes).
+          Se comprime y guarda en IndexedDB.
+        </p>
+        <div
+          className={
+            "ref-dropzone" + (refDragOver ? " drag-over" : "")
+          }
+          onDragOver={(e) => {
+            e.preventDefault();
+            setRefDragOver(true);
+          }}
+          onDragLeave={() => setRefDragOver(false)}
+          onDrop={onRefDrop}
+        >
+          <input
+            ref={fileInputRef}
+            id="refImage"
+            type="file"
+            accept="image/*"
+            disabled={refBusy}
+            onChange={(e) => void handleReferenceFile(e.target.files?.[0])}
+          />
+          <p className="ref-drop-hint">
+            {refBusy
+              ? "Procesando…"
+              : "Arrastra una imagen aquí o elige un archivo"}
+          </p>
+        </div>
+        {referenceImage && (
+          <div className="ref-preview">
+            <img src={referenceImage} alt="Referencia visual del RPG" />
+            <button
+              type="button"
+              className="icon-btn danger"
+              onClick={() => void handleClearReference()}
+            >
+              Quitar imagen
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -388,6 +644,8 @@ export default function App() {
                   {rpg.personajes.length.toLocaleString("es")} caracteres
                 </small>
               </div>
+
+              {renderReferenceUpload()}
 
               <div className="field">
                 <label htmlFor="historia">Historia</label>
@@ -497,17 +755,49 @@ export default function App() {
                 <div className="empty-hint">
                   Escribe tu primera acción o diálogo. El narrador usará el
                   título, la historia, los personajes y el prompt continuo.
+                  {referenceImage
+                    ? " También verá tu imagen de referencia."
+                    : ""}
                 </div>
               )}
               {messages.map((m) => (
-                <div key={m.id} className={"bubble " + m.role}>
+                <div
+                  key={m.id}
+                  className={
+                    "bubble " +
+                    m.role +
+                    (m.kind === "image" ? " bubble-image" : "")
+                  }
+                >
                   <span className="meta">
-                    {m.role === "user" ? "Tú" : "Narrador"}
+                    {m.role === "user"
+                      ? "Tú"
+                      : m.kind === "image"
+                        ? "Imagen"
+                        : "Narrador"}
                   </span>
-                  {m.content}
+                  {m.kind === "image" ? (
+                    m.imageUrl ? (
+                      <img
+                        className="chat-image"
+                        src={m.imageUrl}
+                        alt={m.content || "Escena generada"}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="image-missing">
+                        (Imagen no disponible)
+                      </span>
+                    )
+                  ) : (
+                    m.content
+                  )}
                 </div>
               ))}
               {loading && <div className="typing">Escribiendo…</div>}
+              {imageLoading && (
+                <div className="typing">Generando imagen…</div>
+              )}
               <div ref={bottomRef} />
             </div>
 
@@ -558,7 +848,7 @@ export default function App() {
               </div>
             )}
 
-            <form className="composer" onSubmit={handleSend}>
+            <form className="composer" onSubmit={(e) => void handleSend(e)}>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -570,15 +860,26 @@ export default function App() {
                     void handleSend();
                   }
                 }}
-                disabled={loading}
+                disabled={busy}
               />
-              <button
-                type="submit"
-                className="send"
-                disabled={loading || !input.trim()}
-              >
-                Enviar
-              </button>
+              <div className="composer-actions">
+                <button
+                  type="button"
+                  className="btn-gen-image"
+                  disabled={busy || !hasKey}
+                  title="Generar imagen de la escena (Pollinations)"
+                  onClick={() => void handleGenerateImage()}
+                >
+                  {imageLoading ? "Generando…" : "Generar imagen"}
+                </button>
+                <button
+                  type="submit"
+                  className="send"
+                  disabled={busy || !input.trim()}
+                >
+                  Enviar
+                </button>
+              </div>
             </form>
           </section>
 
